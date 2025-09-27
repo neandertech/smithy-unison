@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "outputDirectory": "out",
+  "sources": [
+    "model"
+  ],
+  "maven": {
+    "dependencies": [
+      "io.github.baccata:plugin_3:dev-SNAPSHOT"
+    ]
+  },
+  "plugins": {
+    "unison": {}
+  }
+}

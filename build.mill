@@ -1,0 +1,30 @@
+//| mill-version: 1.0.5
+//| mill-jvm-version: temurin:17
+
+import mill.*
+import mill.scalalib.*
+import mill.javalib.publish.*
+
+object plugin extends ScalaModule with PublishModule {
+
+  def publishName = "smithy-unison"
+
+  def pomSettings: Task.Simple[mill.javalib.publish.PomSettings] = Task {
+    PomSettings(
+      description = "",
+      organization = "io.github.baccata",
+      url = "",
+      licenses = Seq.empty,
+      versionControl = VersionControl(),
+      developers = Seq.empty,
+    )
+  }
+
+  def publishVersion: Task.Simple[String] = Task {"dev-SNAPSHOT"}
+
+  def scalaVersion = "3.7.1"
+  def mvnDeps = Seq(
+    mvn"software.amazon.smithy:smithy-build:1.61.0",
+  )
+
+}
