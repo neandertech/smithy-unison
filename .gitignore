@@ -69,3 +69,5 @@ version
 
 # smithy lsp
 build/smithy/classpath.json
+
+.unisonHistory

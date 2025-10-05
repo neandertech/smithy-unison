@@ -34,7 +34,7 @@ case class DOperation(
 )
 
 enum Definition {
-  def hints : Hints
+  def hints: Hints
   def shapeId: ShapeId
 
   case DService(
@@ -80,7 +80,15 @@ enum Type {
   case TMap(key: Type, value: Type)
   case TOption(tpe: Type)
   case TRef(fqn: ShapeId)
-  case TUnit
+
+  def isOption = this match
+    case TOption(_) => true
+    case _          => false
+
+  def isUnit = this match
+    case TPrim(PrimitiveType.PUnit) => true
+    case _                          => false
+
 }
 
 enum PrimitiveType {
@@ -97,4 +105,5 @@ enum PrimitiveType {
   case PBlob
   case PDocument
   case PTimestamp
+  case PUnit
 }

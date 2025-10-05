@@ -4,7 +4,7 @@ import software.amazon.smithy.build.SmithyBuildPlugin
 import software.amazon.smithy.build.PluginContext
 import software.amazon.smithy.build.SmithyBuild
 import smithyu.codegen.SmithyToIR
-import smithyu.codegen.renderSchema
+import smithyu.codegen.renderDefinition
 import smithyu.codegen.Lines.newline
 
 class Plugin() extends SmithyBuildPlugin {
@@ -13,7 +13,7 @@ class Plugin() extends SmithyBuildPlugin {
     val model    = context.getModel()
     val contents = codegen
       .Lines(
-        SmithyToIR(model).definitions.map(renderSchema).map(_ ++ newline)
+        SmithyToIR(model).definitions.map(renderDefinition).map(_ ++ newline)
       )
       .get
       .mkString("\n")

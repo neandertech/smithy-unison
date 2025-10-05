@@ -5,8 +5,7 @@ import scala.jdk.CollectionConverters.*
 import scala.jdk.OptionConverters.*
 import software.amazon.smithy.model.selector.PathFinder
 import software.amazon.smithy.model.shapes.*
-import software.amazon.smithy.model.traits.RequiredTrait
-import software.amazon.smithy.model.traits.DefaultTrait
+import software.amazon.smithy.model.traits.*
 
 class SmithyToIR(model: Model) {
 
@@ -70,8 +69,14 @@ class SmithyToIR(model: Model) {
   // scalafmt: {maxColumn = 120}
   class DefinitionVisitor() extends ShapeVisitor[Option[Definition]] {
 
+    private val ignoredHints = Set(
+      DocumentationTrait.ID,
+      TraitDefinition.ID,
+      PrivateTrait.ID
+    )
+
     private def hints(shape: Shape): Hints                  =
-      shape.getAllTraits().asScala.mapValues(_.toNode()).toList.sortBy(_._1.toString())
+      shape.getAllTraits().asScala.filterKeys(!ignoredHints(_)).mapValues(_.toNode()).toList.sortBy(_._1.toString())
     private def primitive(shape: Shape): Option[Definition] =
       shape.accept(typeVisitor).collect { case Type.TPrim(tpe) =>
         Definition.DPrim(shape.getId(), hints(shape), tpe)
@@ -79,11 +84,10 @@ class SmithyToIR(model: Model) {
 
     def member(m: MemberShape): Member = {
       val targetId    = m.getTarget()
-      val targetShape = model.expectShape(targetId)
-      val targetHints = hints(model.expectShape(targetId))
-      val targetType  = types(targetId)
+      val memberHints = hints(m)
+      val targetType  = types(m.getId())
       val roots       = recursiveRoots(targetId)
-      Member(targetId, targetType, targetHints, roots)
+      Member(targetId, targetType, memberHints, roots)
     }
 
     override def blobShape(shape: BlobShape): Option[Definition]             = primitive(shape)
@@ -116,11 +120,18 @@ class SmithyToIR(model: Model) {
       Definition.DSum(shape.getId, hints(shape), roots, members)
     }
 
-    override def structureShape(shape: StructureShape): Option[Definition] = Some {
-      val roots   = recursiveRoots(shape.toShapeId())
-      val members = shape.members().asScala.map(s => member(s).named(s.getMemberName())).toList
-      Definition.DProduct(shape.getId, hints(shape), roots, members)
-    }
+    override def structureShape(shape: StructureShape): Option[Definition] =
+      if (shape.hasTrait(classOf[UnitTypeTrait]))
+      then
+        Some {
+          Definition.DPrim(shape.getId(), hints(shape), PrimitiveType.PUnit)
+        }
+      else
+        Some {
+          val roots   = recursiveRoots(shape.toShapeId())
+          val members = shape.members().asScala.map(s => member(s).named(s.getMemberName())).toList
+          Definition.DProduct(shape.getId, hints(shape), roots, members)
+        }
 
     override def serviceShape(shape: ServiceShape): Option[Definition]     = None
     override def memberShape(shape: MemberShape): Option[Definition]       = None
@@ -139,9 +150,12 @@ class SmithyToIR(model: Model) {
     override def memberShape(shape: MemberShape): Option[Type] = {
       val target     = model.expectShape(shape.getTarget())
       val targetType = target.accept(this)
-      if (shape.hasTrait(classOf[RequiredTrait])) targetType
-      else if (shape.hasNonNullDefault()) targetType
-      else targetType.map(Type.TOption(_))
+      val owner      = model.expectShape(shape.getContainer())
+      if (owner.isStructureShape()) {
+        if (shape.hasTrait(classOf[RequiredTrait])) targetType
+        else if (shape.hasNonNullDefault()) targetType
+        else targetType.map(Type.TOption(_))
+      } else targetType
     }
 
     override def blobShape(shape: BlobShape): Option[Type]             = primitive(PrimitiveType.PBlob)
@@ -149,7 +163,7 @@ class SmithyToIR(model: Model) {
     override def bigDecimalShape(shape: BigDecimalShape): Option[Type] = primitive(PrimitiveType.PBigDecimal)
     override def stringShape(shape: StringShape): Option[Type]         = primitive(PrimitiveType.PString)
     override def shortShape(shape: ShortShape): Option[Type]           = primitive(PrimitiveType.PShort)
-    override def integerShape(shape: IntegerShape): Option[Type]       = primitive(PrimitiveType.PBigInteger)
+    override def integerShape(shape: IntegerShape): Option[Type]       = primitive(PrimitiveType.PInteger)
     override def documentShape(shape: DocumentShape): Option[Type]     = primitive(PrimitiveType.PDocument)
     override def timestampShape(shape: TimestampShape): Option[Type]   = primitive(PrimitiveType.PTimestamp)
     override def doubleShape(shape: DoubleShape): Option[Type]         = primitive(PrimitiveType.PDouble)
@@ -171,7 +185,7 @@ class SmithyToIR(model: Model) {
     override def unionShape(shape: UnionShape): Option[Type] = Some(Type.TRef(shape.getId()))
 
     override def structureShape(shape: StructureShape): Option[Type] =
-      if (shape.getId() == ShapeId.fromParts("smithy.api", "Unit")) Some(Type.TUnit)
+      if (shape.getId() == ShapeId.fromParts("smithy.api", "Unit")) Some(Type.TPrim(PrimitiveType.PUnit))
       else Some(Type.TRef(shape.getId()))
 
     override def serviceShape(shape: ServiceShape): Option[Type] = None
