@@ -4,10 +4,20 @@
 import mill.*
 import mill.scalalib.*
 import mill.javalib.publish.*
+import mill.util.JarManifest
+import mill.api.Task.Simple
 
 object plugin extends ScalaModule with PublishModule {
 
   def publishName = "smithy-unison"
+
+  override def scalacOptions: Simple[Seq[String]] = Task {
+    super.scalacOptions() ++ Seq("--release", "17")
+  }
+
+  override def manifest: Simple[JarManifest] = Task {
+    super.manifest().add(("Dependencies", "jdk.unsupported"))
+  }
 
   def pomSettings: Task.Simple[mill.javalib.publish.PomSettings] = Task {
     PomSettings(
