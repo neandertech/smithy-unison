@@ -69,14 +69,23 @@ class SmithyToIR(model: Model) {
   // scalafmt: {maxColumn = 120}
   class DefinitionVisitor() extends ShapeVisitor[Option[Definition]] {
 
-    private val ignoredHints = Set(
-      DocumentationTrait.ID,
-      TraitDefinition.ID,
-      PrivateTrait.ID
-    )
+    private def acceptTrait(tr: Trait): Boolean = {
+      val ignored = Set(
+        DocumentationTrait.ID,
+        TraitDefinition.ID,
+        PrivateTrait.ID
+      )
+      !tr.isSynthetic() && !ignored(tr.toShapeId())
+    }
 
     private def hints(shape: Shape): Hints                  =
-      shape.getAllTraits().asScala.filterKeys(!ignoredHints(_)).mapValues(_.toNode()).toList.sortBy(_._1.toString())
+      shape
+        .getAllTraits()
+        .asScala
+        .filter { case (_, tr) => acceptTrait(tr) }
+        .mapValues(_.toNode())
+        .toList
+        .sortBy(_._1.toString())
     private def primitive(shape: Shape): Option[Definition] =
       shape.accept(typeVisitor).collect { case Type.TPrim(tpe) =>
         Definition.DPrim(shape.getId(), hints(shape), tpe)
@@ -103,6 +112,18 @@ class SmithyToIR(model: Model) {
     override def booleanShape(shape: BooleanShape): Option[Definition]       = primitive(shape)
     override def floatShape(shape: FloatShape): Option[Definition]           = primitive(shape)
     override def longShape(shape: LongShape): Option[Definition]             = primitive(shape)
+
+    override def enumShape(shape: EnumShape): Option[Definition] = Some {
+      val values =
+        shape.members().asScala.map(m => m.getMemberName() -> shape.getEnumValues().get(m.getMemberName())).toList
+      Definition.DEnumeration(shape.getId(), hints(shape), EnumType.ETString, values)
+    }
+
+    override def intEnumShape(shape: IntEnumShape): Option[Definition] = Some {
+      val values =
+        shape.members().asScala.map(m => m.getMemberName() -> shape.getEnumValues().get(m.getMemberName()).toInt).toList
+      Definition.DEnumeration(shape.getId(), hints(shape), EnumType.ETInt, values)
+    }
 
     override def mapShape(shape: MapShape): Option[Definition] = Some {
       val roots = recursiveRoots(shape.toShapeId())
@@ -182,7 +203,9 @@ class SmithyToIR(model: Model) {
         Type.TList(member)
       }
 
-    override def unionShape(shape: UnionShape): Option[Type] = Some(Type.TRef(shape.getId()))
+    override def unionShape(shape: UnionShape): Option[Type]     = Some(Type.TRef(shape.getId()))
+    override def enumShape(shape: EnumShape): Option[Type]       = Some(Type.TRef(shape.getId()))
+    override def intEnumShape(shape: IntEnumShape): Option[Type] = Some(Type.TRef(shape.getId()))
 
     override def structureShape(shape: StructureShape): Option[Type] =
       if (shape.getId() == ShapeId.fromParts("smithy.api", "Unit")) Some(Type.TPrim(PrimitiveType.PUnit))

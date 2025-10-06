@@ -206,3 +206,32 @@ def renderDefinition(definition: Definition) = definition match
         )
       )
     )
+  case Definition.DEnumeration(shapeId, hints, enumType, values)    =>
+    val cases = enumType match
+      case EnumType.ETString =>
+        Lines(values.map { case (name, value) => (s"$name -> \"$value\"") })
+      case EnumType.ETInt    =>
+        def signed(int: Int) = if (int >= 0) s"+$int" else s"-$int"
+        Lines(values.map {
+          case (name, value) => (s"$name -> ${signed(value)}")
+        })
+
+    Lines(
+      s"type ${shapeId.renderType} = ${values.map(_._1).mkString(" | ")}",
+      shapeId.renderType + ".schema = ",
+      Lines.indent(
+        enumType match {
+          case EnumType.ETString =>
+            s"Schema.textEnum"
+          case EnumType.ETInt    =>
+            s"Schema.intEnum"
+        },
+        Lines.indent(
+          s"[${values.map(_._1).mkString(", ")}]",
+          "cases",
+          cases.indent,
+          shapeId.addName,
+          hints.render
+        )
+      )
+    )

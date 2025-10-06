@@ -72,6 +72,18 @@ enum Definition {
       recursiveRoots: List[ShapeId],
       member: Member
   )
+
+  case DEnumeration[A](
+      shapeId: ShapeId,
+      hints: Hints,
+      enumType: EnumType[A],
+      values: List[(String, A)]
+  )
+}
+
+enum EnumType[A] {
+  case ETString extends EnumType[String]
+  case ETInt    extends EnumType[Int]
 }
 
 enum Type {
