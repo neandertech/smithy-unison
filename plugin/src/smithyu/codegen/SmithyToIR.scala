@@ -65,6 +65,7 @@ class SmithyToIR(model: Model) {
     .asScala
     .flatMap(_.accept(definitionVisitor))
     .toList
+    .sortBy(_.shapeId.toString())
 
   // scalafmt: {maxColumn = 120}
   class DefinitionVisitor() extends ShapeVisitor[Option[Definition]] {
