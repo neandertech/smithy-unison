@@ -63,7 +63,9 @@ class SmithyToIR(model: Model) {
     .shapes()
     .iterator()
     .asScala
-    .flatMap(_.accept(definitionVisitor))
+    .flatMap(shape =>
+      docs(shape).iterator ++ shape.accept(definitionVisitor).iterator
+    )
     .toList
     .sortBy(_.shapeId.toString())
 
@@ -217,6 +219,20 @@ class SmithyToIR(model: Model) {
     override def floatShape(shape: FloatShape): Option[Type] = primitive(PrimitiveType.PFloat)
     override def longShape(shape: LongShape): Option[Type]   = primitive(PrimitiveType.PLong)
 
+  }
+
+  def docs(shape: Shape): Option[Definition] = {
+    val topDoc     = shape.getTrait(classOf[DocumentationTrait]).toScala.map(_.getValue())
+    val memberDocs = shape
+      .members()
+      .asScala
+      .flatMap { m =>
+        m.getTrait(classOf[DocumentationTrait]).toScala.map(_.getValue()).map(m.getMemberName() -> _)
+      }
+      .toList
+    if (shape.isResourceShape() || shape.isMemberShape()) None
+    else if (topDoc.isEmpty && memberDocs.isEmpty) None
+    else Some(Definition.Documentation(shape.getId, topDoc.getOrElse(""), memberDocs))
   }
 
 }

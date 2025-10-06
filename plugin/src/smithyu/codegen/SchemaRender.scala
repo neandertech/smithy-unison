@@ -1,14 +1,8 @@
 package smithyu.codegen
 
 import software.amazon.smithy.model.shapes.ShapeId
-import software.amazon.smithy.model.node.Node
-import software.amazon.smithy.model.node.NodeVisitor
-import software.amazon.smithy.model.node.NullNode
-import software.amazon.smithy.model.node.BooleanNode
-import software.amazon.smithy.model.node.StringNode
-import software.amazon.smithy.model.node.ArrayNode
-import software.amazon.smithy.model.node.NumberNode
-import software.amazon.smithy.model.node.ObjectNode
+import software.amazon.smithy.model.node.*
+import scala.jdk.CollectionConverters.*
 
 val quote               = "\""
 def quoted(str: String) =
@@ -24,9 +18,13 @@ extension (shapeId: ShapeId) {
     s"|> withFullName ${quoted(shapeId.getNamespace())} ${quoted(shapeId.getName())}"
 }
 
+extension (string: String) {
+  def escaped = string.replace("\\", "\\\\").replace(quote, "\\\"")
+}
+
 extension (node: Node) {
   def renderLiteral: String = {
-    quoted(Node.printJson(node).replace("\\", "\\\\").replace(quote, "\\\""))
+    quoted(Node.printJson(node).escaped)
   }
 }
 
@@ -234,4 +232,21 @@ def renderDefinition(definition: Definition) = definition match
           hints.render
         )
       )
+    )
+  case Definition.Documentation(shapeId, direct, members)           =>
+    Lines(
+      shapeId.renderType + ".documentationText = \"\"\"",
+      Lines
+        .indent(
+          direct.lines().iterator().asScala.toList,
+          members.map { case (memberName, text) =>
+            val lines = text.lines().iterator().asScala.toList
+            Lines(
+              s"* $memberName: " ++ lines.head,
+              lines.tail
+            )
+          }
+        )
+        .map(_.escaped),
+      "\"\"\""
     )

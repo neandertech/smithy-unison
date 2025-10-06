@@ -34,7 +34,6 @@ case class DOperation(
 )
 
 enum Definition {
-  def hints: Hints
   def shapeId: ShapeId
 
   case DService(
@@ -79,6 +78,13 @@ enum Definition {
       enumType: EnumType[A],
       values: List[(String, A)]
   )
+
+  case Documentation(
+      shapeId: ShapeId,
+      direct: String,
+      members: List[(String, String)]
+  )
+
 }
 
 enum EnumType[A] {
