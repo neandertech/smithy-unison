@@ -35,8 +35,9 @@ extension (shapeId: ShapeId) {
 }
 
 extension (string: String) {
-  def escaped = string.replace("\\", "\\\\").replace(quote, "\\\"")
-  def uncap   = if (string.headOption.exists(_.isUpper)) "_" + string else string
+  def escaped       = string.replace("\\", "\\\\").replace(quote, "\\\"")
+  def prefixIfUpper = if (string.headOption.exists(_.isUpper)) "_" + string else string
+  def uncap         = if (string.isEmpty()) string else string.head.toLower + string.tail
 }
 
 extension (node: Node) {
@@ -219,15 +220,15 @@ def renderDefinition(definition: Definition) = definition match
             members.map { member =>
               if (member.targetType.isUnit)
               then
-                s"""${member.name.uncap} = SumSchematic.alt ${member.name}Schema "${member.originalName}" do ${member.name.capitalize}"""
+                s"""${member.name.prefixIfUpper} = SumSchematic.alt ${member.name}Schema "${member.originalName}" do ${member.name.capitalize}"""
               else
-                s"""${member.name.uncap} = SumSchematic.alt ${member.name}Schema "${member.originalName}" ${member.name.capitalize}"""
+                s"""${member.name.prefixIfUpper} = SumSchematic.alt ${member.name}Schema "${member.originalName}" ${member.name.capitalize}"""
             },
             s"SumSchematic.absorb cases",
             Lines.indent(members.map { member =>
               if (member.targetType.isUnit)
-              then s"${shapeId.renderType}.${member.name.capitalize} -> ${member.name.uncap}()"
-              else s"${shapeId.renderType}.${member.name.capitalize} value -> ${member.name.uncap} value"
+              then s"${shapeId.renderType}.${member.name.capitalize} -> ${member.name.prefixIfUpper}()"
+              else s"${shapeId.renderType}.${member.name.capitalize} value -> ${member.name.prefixIfUpper} value"
             })
           ),
           shapeId.addName,
@@ -291,19 +292,20 @@ def renderDefinition(definition: Definition) = definition match
       )
     )
   case Definition.Documentation(shapeId, direct, members)           =>
-    Lines(
-      shapeId.renderType + ".documentationText = \"\"\"",
-      Lines
-        .indent(
-          direct.lines().iterator().asScala.toList,
-          members.map { case (memberName, text) =>
-            val lines = text.lines().iterator().asScala.toList
-            Lines(
-              s"* $memberName: " ++ lines.head,
-              lines.tail
-            )
-          }
-        )
-        .map(_.escaped),
-      "\"\"\""
-    )
+    Lines.empty
+  // Lines(
+  //   shapeId.renderType + ".documentationText = \"\"\"",
+  //   Lines
+  //     .indent(
+  //       direct.lines().iterator().asScala.toList,
+  //       members.map { case (memberName, text) =>
+  //         val lines = text.lines().iterator().asScala.toList
+  //         Lines(
+  //           s"* $memberName: " ++ lines.head,
+  //           lines.tail
+  //         )
+  //       }
+  //     )
+  //     .map(_.escaped),
+  //   "\"\"\""
+  // )

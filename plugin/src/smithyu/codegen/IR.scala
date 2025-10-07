@@ -16,7 +16,7 @@ case class Member(
     val amended = str match
       case "type" => "_type"
       case "do"   => "_do"
-      case other  => other
+      case other  => other.uncap
 
     NamedMember(
       amended,

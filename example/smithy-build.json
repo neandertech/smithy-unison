@@ -13,7 +13,9 @@
   "plugins": {
     "unison": {
       "namespaces": [
-        "example"
+        "example",
+        "smithy.api",
+        "com.amazonaws.*"
       ]
     }
   }
