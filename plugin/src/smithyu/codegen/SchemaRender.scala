@@ -4,6 +4,7 @@ import software.amazon.smithy.model.shapes.ShapeId
 import software.amazon.smithy.model.node.*
 import scala.jdk.CollectionConverters.*
 import smithyu.codegen.Definition.DSum
+import software.amazon.smithy.model.traits.DefaultTrait
 
 // scalafmt: {maxColumn = 120}
 
@@ -43,6 +44,24 @@ extension (string: String) {
 extension (node: Node) {
   def renderLiteral: String = {
     quoted(Node.printJson(node).escaped)
+  }
+}
+
+extension (number: Number) {
+
+  def renderNat = {
+    number.intValue().toString()
+  }
+
+  def renderInteger = {
+    val int = number.longValue()
+    if (int >= 0) s"+$int" else s"-$int"
+  }
+
+  def renderFloat = {
+    val bd = BigDecimal(number.toString())
+    if (bd.isValidLong) bd.toString() + ".0"
+    else bd.toString()
   }
 }
 
@@ -109,6 +128,17 @@ extension (member: NamedMember) {
       )
     )
   )
+
+  def defaultNode: Option[Node] = member.hints.collectFirst {
+    case (DefaultTrait.ID, node) if !node.isNullNode() => node
+  }
+
+  def renderDefault: Option[String] = {
+    if (member.targetType.isOption) Some("None")
+    else defaultNode.flatMap(_.accept(DefaultVisitor(member.targetType)))
+  }
+
+  def hasDefault: Boolean = renderDefault.nonEmpty
 }
 
 def renderOperation(service: ShapeId, operation: DOperation): Lines = {
@@ -152,6 +182,7 @@ def renderOperation(service: ShapeId, operation: DOperation): Lines = {
 def renderDefinition(definition: Definition) = definition match
   case Definition.DPrim(shapeId, hints, tpe)                        =>
     val primSchema = tpe match
+      case PrimitiveType.PBoolean    => "schemas.Schema.boolean"
       case PrimitiveType.PInteger    => "schemas.Schema.int"
       case PrimitiveType.PLong       => "schemas.Schema.int"
       case PrimitiveType.PFloat      => "schemas.Schema.float"
@@ -161,7 +192,6 @@ def renderDefinition(definition: Definition) = definition match
       case PrimitiveType.PBigInteger => "schemas.Schema.bigInteger"
       case PrimitiveType.PBigDecimal => "schemas.Schema.bigDecimal"
       case PrimitiveType.PString     => "schemas.Schema.text"
-      case PrimitiveType.PBoolean    => "schemas.Schema.boolean"
       case PrimitiveType.PBlob       => "schemas.Schema.bytes"
       case PrimitiveType.PDocument   => "schemas.Schema.json"
       case PrimitiveType.PTimestamp  => "schemas.Schema.instant"
@@ -184,6 +214,11 @@ def renderDefinition(definition: Definition) = definition match
       if members.nonEmpty
       then s"type ${shapeId.renderType} = {${members.map(_.renderField).mkString(", ")}}"
       else s"type ${shapeId.renderType} = ${shapeId.constructor}",
+      // Minimal constructor
+      s"${shapeId.renderType}.make ${members.filterNot(_.hasDefault).map(_.name).mkString(" ")} = ${shapeId.renderType}.${shapeId.constructor} ${members
+          .map(m => m.renderDefault.getOrElse(m.name))
+          .mkString(" ")}",
+      // Schema
       shapeId.schemaDef(recursiveRoots),
       Lines.indent(
         members.map(_.renderSchema),
@@ -192,10 +227,9 @@ def renderDefinition(definition: Definition) = definition match
           "do",
           Lines.indent(
             members.map { member =>
-              val modifier =
-                if member.targetType.isOption
-                then "(Default None)"
-                else "Required"
+              val modifier = member.renderDefault match
+                case Some(value) => s"(Default $value)"
+                case None        => "Required"
               s"""${member.name} = ProductSchematic.field ${member.name}Schema "${member.originalName}" ${shapeId.renderType}.${member.name} $modifier"""
             },
             s"ProductSchematic.absorb do ${shapeId.renderType}.${shapeId.constructor} ${members
