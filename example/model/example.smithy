@@ -12,3 +12,12 @@ union Bar {
     b: String
     c: Unit
 }
+
+structure RecA {
+    b: RecB
+}
+
+structure RecB {
+    @required
+    a: RecA
+}

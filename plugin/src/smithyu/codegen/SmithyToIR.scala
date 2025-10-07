@@ -98,8 +98,10 @@ class SmithyToIR(model: Model) {
       val targetId    = m.getTarget()
       val memberHints = hints(m)
       val targetType  = types(m.getId())
-      val roots       = recursiveRoots(targetId)
-      Member(targetId, targetType, memberHints, roots)
+      val memberRoots = recursiveRoots(targetId)
+      val ownerRoots  = recursiveRoots(m.getContainer())
+      val rootIndexes = memberRoots.map(r => ownerRoots.indexOf(r))
+      Member(targetId, targetType, memberHints, memberRoots, rootIndexes)
     }
 
     override def blobShape(shape: BlobShape): Option[Definition]             = primitive(shape)

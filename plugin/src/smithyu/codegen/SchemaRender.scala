@@ -3,19 +3,35 @@ package smithyu.codegen
 import software.amazon.smithy.model.shapes.ShapeId
 import software.amazon.smithy.model.node.*
 import scala.jdk.CollectionConverters.*
+import smithyu.codegen.Definition.DSum
+
+// scalafmt: {maxColumn = 120}
 
 val quote               = "\""
 def quoted(str: String) =
   StringBuilder().append(quote).append(str).append(quote).result()
 
 extension (shapeId: ShapeId) {
-  def render: String        = shapeId.getNamespace() + "." + shapeId.getName()
-  def constructor           = shapeId.getName().capitalize
-  def renderType            = shapeId.getNamespace() + "." + shapeId.getName().capitalize
-  def schemaReference       = shapeId.renderType + ".schema"
-  def renderLiteral: String = quoted(render)
-  def addName: String       =
+  def render: String                                  = shapeId.getNamespace() + "." + shapeId.getName()
+  def constructor                                     = shapeId.getName().capitalize
+  def renderType                                      = shapeId.getNamespace() + "." + shapeId.getName().capitalize
+  def schemaReference                                 = shapeId.renderType + ".schema"
+  def renderLiteral: String                           = quoted(render)
+  def addName: String                                 =
     s"|> withFullName ${quoted(shapeId.getNamespace())} ${quoted(shapeId.getName())}"
+  def schemaDef(recursiveRoots: List[ShapeId]): Lines = Lines(
+    if (recursiveRoots.isEmpty)
+    then s"${shapeId.renderType}.schema = "
+    else
+      Lines(
+        if (recursiveRoots == List(shapeId))
+        then s"${shapeId.renderType}.schema = schemas.Schema.cyclic ${shapeId.renderType}.schemaY"
+        else
+          s"${shapeId.renderType}.schema = ${shapeId.renderType}.schemaY ${recursiveRoots.map(_.renderType + ".schema").mkString(" ")}"
+        ,
+        s"${shapeId.renderType}.schemaY ${(0 until recursiveRoots.size).map("y" + _).mkString(" ")} = "
+      )
+  )
 }
 
 extension (string: String) {
@@ -79,7 +95,10 @@ extension (member: NamedMember) {
   def renderSchema: Lines = Lines(
     s"${member.name}Schema = ",
     Lines.indent(
-      s"${member.target.renderType}.schema",
+      // Taking care of the recursion
+      if (member.rootIndexes.isEmpty)
+      then s"${member.target.renderType}.schema"
+      else s"(${member.target.renderType}.schemaY ${member.rootIndexes.map("y" + _).mkString(" ")})",
       Lines.indent(
         member.hints.render,
         if (member.targetType.isOption)
@@ -88,6 +107,43 @@ extension (member: NamedMember) {
       )
     )
   )
+}
+
+def renderOperation(service: ShapeId, operation: DOperation): Lines = {
+  // Making a dedicated shapeId to cater to operations being used across several services.
+  val serviceOperationShapeId =
+    ShapeId.fromParts(service.renderType, operation.shapeId.getName())
+
+  val errorShapeId = ShapeId.fromParts(operation.shapeId.renderType, "Error")
+  val errorMembers = operation.errors.map(id =>
+    NamedMember(
+      id.getName() + "Case",
+      id,
+      Type.TRef(id),
+      List.empty,
+      List.empty,
+      List.empty
+    )
+  )
+  val errorUnion   = DSum(errorShapeId, List.empty, List.empty, errorMembers)
+  Lines(
+    renderDefinition(errorUnion),
+    Lines.newline,
+    serviceOperationShapeId.renderType + ".schema = ",
+    Lines.indent(
+      "schemas.OperationSchema.OperationSchema",
+      Lines.indent(
+        operation.input.target.renderType + ".schema",
+        errorShapeId.renderType + ".schema",
+        operation.output.target.renderType + ".schema",
+        "None",
+        "None"
+      ),
+      operation.shapeId.addName,
+      operation.hints.render
+    )
+  )
+
 }
 
 def renderDefinition(definition: Definition) = definition match
@@ -123,10 +179,9 @@ def renderDefinition(definition: Definition) = definition match
   case Definition.DProduct(shapeId, hints, recursiveRoots, members) =>
     Lines(
       if members.nonEmpty
-      then
-        s"type ${shapeId.renderType} = {${members.map(_.renderField).mkString(", ")}}"
+      then s"type ${shapeId.renderType} = {${members.map(_.renderField).mkString(", ")}}"
       else s"type ${shapeId.renderType} = ${shapeId.constructor}",
-      s"${shapeId.renderType}.schema = ",
+      shapeId.schemaDef(recursiveRoots),
       Lines.indent(
         members.map(_.renderSchema),
         "schemas.Schema.product",

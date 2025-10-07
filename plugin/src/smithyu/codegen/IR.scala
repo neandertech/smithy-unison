@@ -9,10 +9,11 @@ case class Member(
     target: ShapeId,
     targetType: Type,
     hints: Hints,
-    recursiveRoots: List[ShapeId]
+    recursiveRoots: List[ShapeId],
+    rootIndexes: List[Int]
 ) {
   def named(str: String): NamedMember =
-    NamedMember(str, target, targetType, hints, recursiveRoots)
+    NamedMember(str, target, targetType, hints, recursiveRoots, rootIndexes)
 }
 
 case class NamedMember(
@@ -20,7 +21,8 @@ case class NamedMember(
     target: ShapeId,
     targetType: Type,
     hints: Hints,
-    recursiveRoots: List[ShapeId]
+    recursiveRoots: List[ShapeId],
+    rootIndexes: List[Int]
 )
 
 case class DOperation(
