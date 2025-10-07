@@ -11,6 +11,10 @@
     ]
   },
   "plugins": {
-    "unison": {}
+    "unison": {
+      "namespaces": [
+        "example"
+      ]
+    }
   }
 }
