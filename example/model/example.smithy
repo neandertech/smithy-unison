@@ -21,3 +21,11 @@ structure RecB {
     @required
     a: RecA
 }
+
+list RecC {
+    member: RecD
+}
+
+union RecD {
+    l: RecC
+}

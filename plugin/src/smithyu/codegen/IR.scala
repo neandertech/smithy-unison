@@ -12,12 +12,27 @@ case class Member(
     recursiveRoots: List[ShapeId],
     rootIndexes: List[Int]
 ) {
-  def named(str: String): NamedMember =
-    NamedMember(str, target, targetType, hints, recursiveRoots, rootIndexes)
+  def named(str: String): NamedMember = {
+    val amended = str match
+      case "type" => "_type"
+      case "do"   => "_do"
+      case other  => other
+
+    NamedMember(
+      amended,
+      str,
+      target,
+      targetType,
+      hints,
+      recursiveRoots,
+      rootIndexes
+    )
+  }
 }
 
 case class NamedMember(
     name: String,
+    originalName: String,
     target: ShapeId,
     targetType: Type,
     hints: Hints,

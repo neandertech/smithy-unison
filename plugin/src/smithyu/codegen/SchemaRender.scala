@@ -36,6 +36,7 @@ extension (shapeId: ShapeId) {
 
 extension (string: String) {
   def escaped = string.replace("\\", "\\\\").replace(quote, "\\\"")
+  def uncap   = if (string.headOption.exists(_.isUpper)) "_" + string else string
 }
 
 extension (node: Node) {
@@ -90,7 +91,7 @@ extension (member: NamedMember) {
   def renderAlt   =
     if member.targetType.isUnit
     then member.name.capitalize
-    else s"${member.name.capitalize} ${member.targetType.render}"
+    else s"${member.name.capitalize} ${member.targetType.renderP}"
 
   def renderSchema: Lines = Lines(
     s"${member.name}Schema = ",
@@ -118,6 +119,7 @@ def renderOperation(service: ShapeId, operation: DOperation): Lines = {
   val errorMembers = operation.errors.map(id =>
     NamedMember(
       id.getName() + "Case",
+      id.getName(),
       id,
       Type.TRef(id),
       List.empty,
@@ -193,7 +195,7 @@ def renderDefinition(definition: Definition) = definition match
                 if member.targetType.isOption
                 then "(Default None)"
                 else "Required"
-              s"""${member.name} = ProductSchematic.field ${member.name}Schema "${member.name}" ${shapeId.renderType}.${member.name} $modifier"""
+              s"""${member.name} = ProductSchematic.field ${member.name}Schema "${member.originalName}" ${shapeId.renderType}.${member.name} $modifier"""
             },
             s"ProductSchematic.absorb do ${shapeId.renderType}.${shapeId.constructor} ${members
                 .map { m => m.name + "()" }
@@ -207,7 +209,7 @@ def renderDefinition(definition: Definition) = definition match
   case Definition.DSum(shapeId, hints, recursiveRoots, members)     =>
     Lines(
       s"type ${shapeId.renderType} = ${members.map(_.renderAlt).mkString(" | ")}",
-      s"${shapeId.renderType}.schema = ",
+      shapeId.schemaDef(recursiveRoots),
       Lines.indent(
         members.map(_.renderSchema),
         "schemas.Schema.sum",
@@ -217,15 +219,15 @@ def renderDefinition(definition: Definition) = definition match
             members.map { member =>
               if (member.targetType.isUnit)
               then
-                s"""${member.name} = SumSchematic.alt ${member.name}Schema "${member.name}" do ${member.name.capitalize}"""
+                s"""${member.name.uncap} = SumSchematic.alt ${member.name}Schema "${member.originalName}" do ${member.name.capitalize}"""
               else
-                s"""${member.name} = SumSchematic.alt ${member.name}Schema "${member.name}" ${member.name.capitalize}"""
+                s"""${member.name.uncap} = SumSchematic.alt ${member.name}Schema "${member.originalName}" ${member.name.capitalize}"""
             },
             s"SumSchematic.absorb cases",
             Lines.indent(members.map { member =>
               if (member.targetType.isUnit)
-              then s"${member.name.capitalize} -> ${member.name}()"
-              else s"${member.name.capitalize} value -> ${member.name} value"
+              then s"${shapeId.renderType}.${member.name.capitalize} -> ${member.name.uncap}()"
+              else s"${shapeId.renderType}.${member.name.capitalize} value -> ${member.name.uncap} value"
             })
           ),
           shapeId.addName,
@@ -235,7 +237,7 @@ def renderDefinition(definition: Definition) = definition match
     )
   case Definition.DMap(shapeId, hints, recursiveRoots, key, value)  =>
     Lines(
-      shapeId.renderType + ".schema = ",
+      shapeId.schemaDef(recursiveRoots),
       Lines.indent(
         key.named("key").renderSchema,
         value.named("value").renderSchema,
@@ -248,7 +250,7 @@ def renderDefinition(definition: Definition) = definition match
     )
   case Definition.DList(shapeId, hints, recursiveRoots, member)     =>
     Lines(
-      shapeId.renderType + ".schema = ",
+      shapeId.schemaDef(recursiveRoots),
       Lines.indent(
         member.named("member").renderSchema,
         "memberSchema",
@@ -262,11 +264,11 @@ def renderDefinition(definition: Definition) = definition match
   case Definition.DEnumeration(shapeId, hints, enumType, values)    =>
     val cases = enumType match
       case EnumType.ETString =>
-        Lines(values.map { case (name, value) => (s"$name -> \"$value\"") })
+        Lines(values.map { case (name, value) => (s"${shapeId.renderType}.$name -> \"$value\"") })
       case EnumType.ETInt    =>
         def signed(int: Int) = if (int >= 0) s"+$int" else s"-$int"
         Lines(values.map {
-          case (name, value) => (s"$name -> ${signed(value)}")
+          case (name, value) => (s"${shapeId.renderType}.$name -> ${signed(value)}")
         })
 
     Lines(

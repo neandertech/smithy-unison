@@ -100,7 +100,7 @@ class SmithyToIR(model: Model) {
       val targetType  = types(m.getId())
       val memberRoots = recursiveRoots(targetId)
       val ownerRoots  = recursiveRoots(m.getContainer())
-      val rootIndexes = memberRoots.map(r => ownerRoots.indexOf(r))
+      val rootIndexes = memberRoots.map(r => ownerRoots.indexOf(r)).filter(_ >= 0)
       Member(targetId, targetType, memberHints, memberRoots, rootIndexes)
     }
 

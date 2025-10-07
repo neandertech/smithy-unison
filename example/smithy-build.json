@@ -6,7 +6,8 @@
   ],
   "maven": {
     "dependencies": [
-      "io.github.baccata:plugin_3:dev-SNAPSHOT"
+      "io.github.baccata:plugin_3:dev-SNAPSHOT",
+      "software.amazon.api.models:dynamodb:1.0.5"
     ]
   },
   "plugins": {
