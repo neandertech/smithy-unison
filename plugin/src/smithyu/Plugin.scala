@@ -23,15 +23,18 @@ class Plugin() extends SmithyBuildPlugin {
     val allowedMessage =
       if (allowed.isEmpty)
       then "Unison plugin misconfigured: no namespace will be rendered."
-      else s"""|Will render Unison code for shapes in namespaces:
-               |
-               |${allowed.mkString(",\n")}
-               |""".stripMargin
+      else
+        s"""|Will render Unison code in ${context
+             .getFileManifest()
+             .getBaseDir()}/generated.u for shapes in namespaces:
+            |
+            |${allowed.mkString(",\n")}
+            |""".stripMargin
 
     val message =
       s"""|$allowedMessage
           |
-          |Discarding shapes from namespaces:
+          |Ignoring shapes from namespaces:
           |
           |${discarded.mkString(",\n")}
           |""".stripMargin
@@ -47,7 +50,7 @@ class Plugin() extends SmithyBuildPlugin {
       .get
       .mkString("\n")
 
-    context.getFileManifest().writeFile("hello.u", contents)
+    context.getFileManifest().writeFile("generated.u", contents)
   }
 
 }

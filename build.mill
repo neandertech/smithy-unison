@@ -15,15 +15,11 @@ object plugin extends ScalaModule with PublishModule {
     super.scalacOptions() ++ Seq("--release", "17")
   }
 
-  override def manifest: Simple[JarManifest] = Task {
-    super.manifest().add(("Dependencies", "jdk.unsupported"))
-  }
-
   def pomSettings: Task.Simple[mill.javalib.publish.PomSettings] = Task {
     PomSettings(
-      description = "",
-      organization = "io.github.baccata",
-      url = "",
+      description = "A smithy-build plugin that generates code for the Unison programming language.",
+      organization = "tech.neander",
+      url = "https://github.com/neandertech/smithy-unison",
       licenses = Seq.empty,
       versionControl = VersionControl(),
       developers = Seq.empty,

@@ -6,6 +6,7 @@ import scala.jdk.OptionConverters.*
 import software.amazon.smithy.model.selector.PathFinder
 import software.amazon.smithy.model.shapes.*
 import software.amazon.smithy.model.traits.*
+import smithyu.codegen.Definition.DService
 
 class SmithyToIR(model: Model) {
 
@@ -81,6 +82,20 @@ class SmithyToIR(model: Model) {
       !tr.isSynthetic() && !ignored(tr.toShapeId())
     }
 
+    private def isStreaming(memberShape: MemberShape): Boolean =
+      memberShape.hasTrait(classOf[StreamingTrait]) || model
+        .expectShape(memberShape.getTarget())
+        .hasTrait(classOf[StreamingTrait])
+
+    private def streamedMember(shapeId: ShapeId): Option[Member] =
+      model
+        .expectShape(shapeId)
+        .members()
+        .asScala
+        .find(isStreaming)
+        .map(m => (m.getTarget(), hints(m)))
+        .map { case (target, hints) => Member(target, types(target), hints, List.empty, List.empty) }
+
     private def hints(shape: Shape): Hints                  =
       shape
         .getAllTraits()
@@ -146,7 +161,7 @@ class SmithyToIR(model: Model) {
       Definition.DSum(shape.getId, hints(shape), roots, members)
     }
 
-    override def structureShape(shape: StructureShape): Option[Definition] =
+    override def structureShape(shape: StructureShape): Option[Definition] = {
       if (shape.hasTrait(classOf[UnitTypeTrait]))
       then
         Some {
@@ -155,11 +170,40 @@ class SmithyToIR(model: Model) {
       else
         Some {
           val roots   = recursiveRoots(shape.toShapeId())
-          val members = shape.members().asScala.map(s => member(s).named(s.getMemberName())).toList
+          val members = shape
+            .members()
+            .asScala
+            // Removing streamed members
+            .filterNot(isStreaming)
+            .map(s => member(s).named(s.getMemberName()))
+            .toList
           Definition.DProduct(shape.getId, hints(shape), roots, members)
         }
+    }
 
-    override def serviceShape(shape: ServiceShape): Option[Definition]     = None
+    override def serviceShape(shape: ServiceShape): Option[Definition] = Some {
+      val serviceErrors = shape.getErrors().asScala
+      val operations    =
+        shape
+          .getAllOperations()
+          .asScala
+          .map(model.expectShape(_, classOf[OperationShape]))
+          .map { operation =>
+            val allErrors      = (serviceErrors ++ operation.getErrors().asScala).distinct.toList
+            val inputShapeId   = operation.getInputShape()
+            val inputType      = types(inputShapeId)
+            val outputShapeId  = operation.getOutputShape()
+            val outputType     = types(outputShapeId)
+            val input          = Member(inputShapeId, inputType, List.empty, List.empty, List.empty)
+            val output         = Member(outputShapeId, outputType, List.empty, List.empty, List.empty)
+            val streamedInput  = streamedMember(inputShapeId)
+            val streamedOutput = streamedMember(outputShapeId)
+            DOperation(operation.getId, hints(operation), input, allErrors, output, streamedInput, streamedOutput)
+          }
+          .toList
+      DService(shape.getId(), hints(shape), operations)
+    }
+
     override def memberShape(shape: MemberShape): Option[Definition]       = None
     override def resourceShape(shape: ResourceShape): Option[Definition]   = None
     override def operationShape(shape: OperationShape): Option[Definition] = None

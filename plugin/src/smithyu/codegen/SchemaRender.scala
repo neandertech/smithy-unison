@@ -5,6 +5,7 @@ import software.amazon.smithy.model.node.*
 import scala.jdk.CollectionConverters.*
 import smithyu.codegen.Definition.DSum
 import software.amazon.smithy.model.traits.DefaultTrait
+import scala.jdk.OptionConverters.*
 
 // scalafmt: {maxColumn = 120}
 
@@ -101,7 +102,7 @@ extension (tpe: Type) {
 extension (hints: Hints) {
   def render: Lines = Lines {
     hints.map { case (shapeId, node) =>
-      s"|> schemas.Schema.addJsonHint.unsafe ${shapeId.renderLiteral} ${node.renderLiteral}"
+      s"|> addJsonHint.unsafe ${shapeId.renderLiteral} ${node.renderLiteral}"
     }
   }
 }
@@ -160,20 +161,27 @@ def renderOperation(service: ShapeId, operation: DOperation): Lines = {
   )
   val errorUnion   = DSum(errorShapeId, List.empty, List.empty, errorMembers)
   Lines(
-    renderDefinition(errorUnion),
+    if (errorMembers.isEmpty) then Lines.empty else renderDefinition(errorUnion),
     Lines.newline,
     serviceOperationShapeId.renderType + ".schema = ",
     Lines.indent(
+      operation.streamedInput.map(_.named("streamedInput").renderSchema),
+      operation.streamedOutput.map(_.named("streamedOutput").renderSchema),
       "schemas.OperationSchema.OperationSchema",
       Lines.indent(
         operation.input.target.renderType + ".schema",
-        errorShapeId.renderType + ".schema",
+        if (errorMembers.isEmpty) then "None" else s"(Some ${errorShapeId.renderType}.schema)",
         operation.output.target.renderType + ".schema",
-        "None",
-        "None"
-      ),
-      operation.shapeId.addName,
-      operation.hints.render
+        if operation.streamedInput.isDefined
+        then "Some (streamedInputSchema)"
+        else "None",
+        if operation.streamedOutput.isDefined
+        then "Some (streamedInputSchema)"
+        else "None",
+        "Hints.empty",
+        operation.shapeId.addName,
+        operation.hints.render
+      )
     )
   )
 
@@ -208,7 +216,28 @@ def renderDefinition(definition: Definition) = definition match
       )
     )
   case Definition.DService(shapeId, hints, operations)              =>
-    Lines.empty
+    // AWS uses sometimes uses weird names for its service
+    val maybeAWSSdkName = hints
+      .find(_._1 == ShapeId.from("aws.api#service"))
+      .map(_._2)
+      .flatMap(_.asObjectNode().toScala)
+      .map(_.expectStringMember("sdkId").getValue())
+
+    val amendedId = maybeAWSSdkName match
+      case Some(value) => ShapeId.fromParts(shapeId.getNamespace(), value)
+      case None        => shapeId
+
+    Lines(
+      s"${amendedId.renderType}.hints =",
+      Lines.indent(
+        "schemas.Hints.empty",
+        Lines.indent(
+          s"|> schemas.Hints.member.add schemas.Name.schema (schemas.Name.Name (Some ${quoted(shapeId.getNamespace())}) ${quoted(shapeId.getName())})"
+        )
+      ),
+      Lines.newline,
+      operations.map(renderOperation(amendedId, _))
+    )
   case Definition.DProduct(shapeId, hints, recursiveRoots, members) =>
     Lines(
       if members.nonEmpty
