@@ -6,7 +6,7 @@
   ],
   "maven": {
     "dependencies": [
-      "tech.neander:plugin_3:dev-SNAPSHOT"
+      "tech.neander:smithy-unison:dev-SNAPSHOT"
     ]
   },
   "plugins": {

@@ -23,7 +23,7 @@ The `smithy-cli` is configured using a JSON file in the directory where you want
   ],
   "maven": {
     "dependencies": [
-      "tech.neander:plugin_3:dev-SNAPSHOT"
+      "tech.neander:smithy-unison:x.y.z"
     ]
   },
   "plugins": {
@@ -51,7 +51,7 @@ Here's a concise explanation of the format above :
   "maven": {
     "dependencies": [
       // reference to the maven coordinates of this plugin
-      "tech.neander:plugin_3:{x.y.z}",
+      "tech.neander:smithy-unison:x.y.z",
       // additional artifacts, potentially containing other smithy models you want to
       // generate code for, or that your model depends on.
       "software.amazon.api.models:dynamodb:1.0.5"
@@ -81,5 +81,5 @@ Simply run the following in the directory where your `smithy-build.json` configu
 
 ## What does the generated code contain ?
 
-The generated code contains idiomatic Unison data-types representing the smithy shapes, as well as associated [`Schema`](https://share.unison-lang.org/@baccata/schemas/) values
-capturing details allowing to wire these types with serialisation functions.
+The generated code contains idiomatic Unison data-types representing the smithy shapes, as well as associated [`Schema`](https://share.unison-lang.org/@baccata/schemas/) values capturing details allowing to wire these types with serialisation functions. This implies that in order for the generated code
+to compile, you must install this library in your project.
