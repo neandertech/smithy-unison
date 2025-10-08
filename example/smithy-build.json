@@ -6,16 +6,13 @@
   ],
   "maven": {
     "dependencies": [
-      "tech.neander:plugin_3:dev-SNAPSHOT",
-      "software.amazon.api.models:dynamodb:1.0.5"
+      "tech.neander:plugin_3:dev-SNAPSHOT"
     ]
   },
   "plugins": {
     "unison": {
       "namespaces": [
-        "example",
-        "smithy.api",
-        "com.amazonaws.*"
+        "example"
       ]
     }
   }
