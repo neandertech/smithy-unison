@@ -173,10 +173,10 @@ def renderOperation(service: ShapeId, operation: DOperation): Lines = {
         if (errorMembers.isEmpty) then "None" else s"(Some ${errorShapeId.renderType}.schema)",
         operation.output.target.renderType + ".schema",
         if operation.streamedInput.isDefined
-        then "Some (streamedInputSchema)"
+        then "(Some streamedInputSchema)"
         else "None",
         if operation.streamedOutput.isDefined
-        then "Some (streamedInputSchema)"
+        then "(Some streamedOutputSchema)"
         else "None",
         "Hints.empty",
         operation.shapeId.addName,

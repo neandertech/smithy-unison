@@ -13,10 +13,10 @@ case class Member(
     rootIndexes: List[Int]
 ) {
   def named(str: String): NamedMember = {
-    val amended = str match
+    val amended = str.uncap match
       case "type" => "_type"
       case "do"   => "_do"
-      case other  => other.uncap
+      case other  => other
 
     NamedMember(
       amended,
