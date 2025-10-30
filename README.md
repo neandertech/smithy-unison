@@ -54,7 +54,7 @@ Here's a concise explanation of the format above :
       "tech.neander:smithy-unison:x.y.z",
       // additional artifacts, potentially containing other smithy models you want to
       // generate code for, or that your model depends on.
-      "software.amazon.api.models:dynamodb:1.0.5"
+      "software.amazon.api.models:dynamodb:1.0.3"
     ]
   },
   "plugins": {

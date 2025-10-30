@@ -6,13 +6,15 @@
   ],
   "maven": {
     "dependencies": [
-      "tech.neander:smithy-unison:dev-SNAPSHOT"
+      "tech.neander:smithy-unison:dev-SNAPSHOT",
+      "software.amazon.api.models:kinesis:1.0.3"
     ]
   },
   "plugins": {
     "unison": {
       "namespaces": [
-        "example"
+        "smithy.api",
+        "com.amazonaws.*"
       ]
     }
   }

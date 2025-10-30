@@ -79,7 +79,12 @@ class SmithyToIR(model: Model) {
         TraitDefinition.ID,
         PrivateTrait.ID
       )
-      !tr.isSynthetic() && !ignored(tr.toShapeId())
+
+      val ignoredNamespaces = Set(
+        "smithy.rules"
+      )
+
+      !tr.isSynthetic() && !ignored(tr.toShapeId()) && !ignoredNamespaces(tr.toShapeId().getNamespace())
     }
 
     private def isStreaming(memberShape: MemberShape): Boolean =

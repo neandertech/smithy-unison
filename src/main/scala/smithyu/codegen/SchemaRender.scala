@@ -99,10 +99,21 @@ extension (tpe: Type) {
 
 }
 
+enum HintSegment {
+  case Local
+  case Ref
+  case Owner
+}
+
 extension (hints: Hints) {
-  def render: Lines = Lines {
+  def render(segment: HintSegment): Lines = Lines {
+    val segmentStr = segment match
+      case HintSegment.Local => "HintSegment.local "
+      case HintSegment.Ref   => "HintSegment.ref"
+      case HintSegment.Owner => "HintSegment.owner"
+
     hints.map { case (shapeId, node) =>
-      s"|> addJsonHint.unsafe ${shapeId.renderLiteral} ${node.renderLiteral}"
+      s"|> addJsonHint.unsafe $segmentStr ${shapeId.renderLiteral} ${node.renderLiteral}"
     }
   }
 }
@@ -122,7 +133,7 @@ extension (member: NamedMember) {
       then s"${member.target.renderType}.schema"
       else s"(${member.target.renderType}.schemaY ${member.rootIndexes.map("y" + _).mkString(" ")})",
       Lines.indent(
-        member.hints.render,
+        member.hints.render(HintSegment.Ref),
         if (member.targetType.isOption)
         then Lines("|> schemas.Schema.optional")
         else Lines.empty
@@ -178,9 +189,9 @@ def renderOperation(service: ShapeId, operation: DOperation): Lines = {
         if operation.streamedOutput.isDefined
         then "(Some streamedOutputSchema)"
         else "None",
-        "Hints.empty",
+        s"${service.renderType}.hints",
         operation.shapeId.addName,
-        operation.hints.render
+        operation.hints.render(HintSegment.Local)
       )
     )
   )
@@ -211,7 +222,7 @@ def renderDefinition(definition: Definition) = definition match
         primSchema,
         Lines.indent(
           shapeId.addName,
-          hints.render
+          hints.render(HintSegment.Local)
         )
       )
     )
@@ -232,7 +243,10 @@ def renderDefinition(definition: Definition) = definition match
       Lines.indent(
         "schemas.Hints.empty",
         Lines.indent(
-          s"|> schemas.Hints.member.add schemas.Name.schema (schemas.Name.Name (Some ${quoted(shapeId.getNamespace())}) ${quoted(shapeId.getName())})"
+          s"|> schemas.Hints.addTo HintSegment.owner schemas.Name.schema (schemas.Name.Name (Some ${quoted(
+              shapeId.getNamespace()
+            )}) ${quoted(shapeId.getName())})",
+          hints.render(HintSegment.Owner)
         )
       ),
       Lines.newline,
@@ -266,7 +280,7 @@ def renderDefinition(definition: Definition) = definition match
                 .mkString(" ")}"
           ),
           shapeId.addName,
-          hints.render
+          hints.render(HintSegment.Local)
         )
       )
     )
@@ -295,7 +309,7 @@ def renderDefinition(definition: Definition) = definition match
             })
           ),
           shapeId.addName,
-          hints.render
+          hints.render(HintSegment.Local)
         )
       )
     )
@@ -308,7 +322,7 @@ def renderDefinition(definition: Definition) = definition match
         "(Schema.map keySchema valueSchema)",
         Lines.indent(
           shapeId.addName,
-          hints.render
+          hints.render(HintSegment.Local)
         )
       )
     )
@@ -321,7 +335,7 @@ def renderDefinition(definition: Definition) = definition match
         Lines.indent(
           "|> Schema.list",
           shapeId.addName,
-          hints.render
+          hints.render(HintSegment.Local)
         )
       )
     )
@@ -350,7 +364,7 @@ def renderDefinition(definition: Definition) = definition match
           "cases",
           cases.indent,
           shapeId.addName,
-          hints.render
+          hints.render(HintSegment.Local)
         )
       )
     )
